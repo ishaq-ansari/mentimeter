@@ -54,16 +54,20 @@ export function WordCloud({ sessionId, questionId }: Props) {
       size: 20 + (count * 10)
     }));
 
+    // Clear previous rendering
     d3.select(svgRef.current).selectAll("*").remove();
 
+    // Create a static layout with predetermined positions
     const layout = cloud()
       .size([width, height])
       .words(wordData)
-      .padding(5)
-      .rotate(() => 0)
+      .padding(10) // Increase padding between words
+      .rotate(0) // No rotation for better readability
+      .random(() => 0.5) // Consistent random seed for stability
       .fontSize(d => (d as WordData).size)
       .on("end", draw);
 
+    // Start layout calculation
     layout.start();
 
     function draw(words: any[]) {
@@ -78,7 +82,13 @@ export function WordCloud({ sessionId, questionId }: Props) {
         .data(words)
         .enter().append("text")
         .style("font-size", d => `${d.size}px`)
-        .style("fill", () => d3.schemeCategory10[Math.floor(Math.random() * 10)])
+        .style("font-family", "Arial, sans-serif")
+        .style("font-weight", "bold")
+        .style("fill", (d, i) => {
+          // Use a fixed palette rather than random colors for consistency
+          const colors = d3.schemeCategory10;
+          return colors[i % colors.length];
+        })
         .attr("text-anchor", "middle")
         .attr("transform", d => `translate(${d.x},${d.y})`)
         .text(d => d.text);
@@ -88,6 +98,11 @@ export function WordCloud({ sessionId, questionId }: Props) {
   return (
     <div className="bg-white rounded-lg p-4">
       <svg ref={svgRef} className="w-full h-[400px]" />
+      {Object.keys(words).length === 0 && (
+        <div className="flex justify-center items-center h-[300px] text-gray-500">
+          Waiting for responses...
+        </div>
+      )}
     </div>
   );
 }

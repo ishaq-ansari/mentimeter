@@ -9,6 +9,7 @@ interface Question {
   text: string;
   type: 'wordcloud' | 'voting';
   options?: string[];
+  maxResponses?: number; // New property for word cloud max responses
 }
 
 export function CreateSession() {
@@ -17,6 +18,7 @@ export function CreateSession() {
   const [newQuestion, setNewQuestion] = useState('');
   const [questionType, setQuestionType] = useState<'wordcloud' | 'voting'>('voting');
   const [options, setOptions] = useState<string[]>(['']);
+  const [maxResponses, setMaxResponses] = useState<number>(1); // Default value of 1 response
   const [isLoading, setIsLoading] = useState(false);
 
   const addQuestion = () => {
@@ -26,12 +28,14 @@ export function CreateSession() {
       id: nanoid(),
       text: newQuestion,
       type: questionType,
-      options: questionType === 'voting' ? options.filter(opt => opt.trim()) : undefined
+      options: questionType === 'voting' ? options.filter(opt => opt.trim()) : undefined,
+      maxResponses: questionType === 'wordcloud' ? maxResponses : undefined
     };
     
     setQuestions([...questions, question]);
     setNewQuestion('');
     setOptions(['']);
+    setMaxResponses(1); // Reset to default after adding
   };
 
   const removeQuestion = (id: string) => {
@@ -130,6 +134,25 @@ export function CreateSession() {
             </div>
           )}
 
+          {questionType === 'wordcloud' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Maximum Responses per User
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="10"
+                value={maxResponses}
+                onChange={(e) => setMaxResponses(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-full p-2 border rounded-md"
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                Each participant can submit up to this many responses
+              </p>
+            </div>
+          )}
+
           <button
             onClick={addQuestion}
             className="w-full bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600 flex items-center justify-center gap-2"
@@ -147,6 +170,11 @@ export function CreateSession() {
                 <span className="font-medium">#{index + 1}</span>
                 <span className="ml-2">{question.text}</span>
                 <span className="ml-2 text-sm text-gray-500">({question.type})</span>
+                {question.type === 'wordcloud' && question.maxResponses && (
+                  <span className="ml-2 text-sm text-gray-500">
+                    (Max {question.maxResponses} {question.maxResponses === 1 ? 'response' : 'responses'})
+                  </span>
+                )}
               </div>
               <button
                 onClick={() => removeQuestion(question.id)}
