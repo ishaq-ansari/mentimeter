@@ -47,11 +47,11 @@ export function WordCloud({ sessionId, questionId }: Props) {
     if (!svgRef.current || Object.keys(words).length === 0) return;
 
     const width = 800;
-    const height = 400;
+    const height = 300; // Reduced from 400px to 300px
 
     const wordData: WordData[] = Object.entries(words).map(([text, count]) => ({
       text,
-      size: 20 + (count * 10)
+      size: 16 + (count * 8) // Slightly smaller font sizes to fit reduced height
     }));
 
     // Clear previous rendering
@@ -61,7 +61,7 @@ export function WordCloud({ sessionId, questionId }: Props) {
     const layout = cloud()
       .size([width, height])
       .words(wordData)
-      .padding(10) // Increase padding between words
+      .padding(8) // Slightly reduced padding
       .rotate(0) // No rotation for better readability
       .random(() => 0.5) // Consistent random seed for stability
       .fontSize(d => (d as WordData).size)
@@ -96,10 +96,10 @@ export function WordCloud({ sessionId, questionId }: Props) {
   }, [words]);
 
   return (
-    <div className="bg-white rounded-lg p-4">
-      <svg ref={svgRef} className="w-full h-[400px]" />
+    <div className="bg-white rounded-xl p-4 border-2 border-blue-500 shadow-lg">
+      <svg ref={svgRef} className="w-full h-[300px]" />
       {Object.keys(words).length === 0 && (
-        <div className="flex justify-center items-center h-[300px] text-gray-500">
+        <div className="flex justify-center items-center h-[200px] text-gray-500">
           Waiting for responses...
         </div>
       )}

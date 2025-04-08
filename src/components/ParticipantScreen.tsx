@@ -14,6 +14,7 @@ interface Question {
 export function ParticipantScreen() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [inputs, setInputs] = useState<string[]>(['']);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -26,8 +27,39 @@ export function ParticipantScreen() {
   useEffect(() => {
     if (sessionId) {
       loadSession();
+      
+      // Subscribe to changes in the session
+      const subscription = supabase
+        .channel('session-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'sessions',
+            filter: `id=eq.${sessionId}`
+          },
+          (payload) => {
+            // Update the current question index when it changes
+            if (payload.new && payload.new.current_question_index !== undefined) {
+              setCurrentQuestionIndex(payload.new.current_question_index);
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        subscription.unsubscribe();
+      };
     }
   }, [sessionId]);
+
+  // Update current question whenever the question index changes
+  useEffect(() => {
+    if (questions.length > 0 && currentQuestionIndex >= 0 && currentQuestionIndex < questions.length) {
+      setCurrentQuestion(questions[currentQuestionIndex]);
+    }
+  }, [questions, currentQuestionIndex]);
 
   useEffect(() => {
     if (sessionId && currentQuestion?.id) {
@@ -40,8 +72,9 @@ export function ParticipantScreen() {
       const maxReached = currentQuestion.maxResponses ? count >= currentQuestion.maxResponses : count > 0;
       setHasSubmittedMax(maxReached);
       
-      // Reset inputs
+      // Reset inputs and selected option when changing questions
       setInputs(['']);
+      setSelectedOption(null);
     }
   }, [sessionId, currentQuestion?.id]);
 
@@ -51,7 +84,7 @@ export function ParticipantScreen() {
     try {
       const { data, error } = await supabase
         .from('sessions')
-        .select('questions')
+        .select('questions, current_question_index')
         .eq('id', sessionId)
         .single();
 
@@ -59,7 +92,12 @@ export function ParticipantScreen() {
       if (!data) throw new Error('Session not found');
 
       setQuestions(data.questions);
-      setCurrentQuestion(data.questions[0]);
+      
+      // Set current question index from the database
+      if (data.current_question_index !== undefined) {
+        setCurrentQuestionIndex(data.current_question_index);
+      }
+      
       setError(null);
     } catch (err) {
       console.error('Error loading session:', err);
@@ -181,12 +219,18 @@ export function ParticipantScreen() {
   return (
     <div className="max-w-md mx-auto">
       <div className="bg-white rounded-lg shadow-lg p-6">
-        <h1 className="text-xl font-bold mb-4">{currentQuestion.text}</h1>
+        <div className="border-b pb-2 mb-4">
+          <span className="text-sm text-blue-600">Question {currentQuestionIndex + 1}</span>
+          <h1 className="text-xl font-bold">{currentQuestion.text}</h1>
+        </div>
 
         {hasSubmittedMax && currentQuestion.type === 'voting' ? (
           <div className="flex flex-col items-center justify-center py-8 text-green-600">
             <CheckCircle size={48} />
             <p className="mt-4 text-lg font-medium">Thank you! Your response has been submitted.</p>
+            <p className="text-sm text-gray-500 mt-2">
+              Waiting for the presenter to move to the next question...
+            </p>
           </div>
         ) : currentQuestion.type === 'wordcloud' ? (
           <div className="space-y-4">
@@ -195,6 +239,9 @@ export function ParticipantScreen() {
                 <CheckCircle size={48} />
                 <p className="mt-4 text-lg font-medium">
                   Thank you! You've submitted all {currentQuestion.maxResponses || 1} responses.
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Waiting for the presenter to move to the next question...
                 </p>
               </div>
             ) : (
